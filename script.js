@@ -1,68 +1,83 @@
 const fs = require("fs");
 
-let products;
-
-try {
-  products = JSON.parse(fs.readFileSync("./products.txt"));
-} catch (error) {
-  products = [];
-  fs.writeFileSync("./products.txt", JSON.stringify(products));
-  console.log("No existe products.txt. Archivo creado", error);
-}
-
 class Container {
-  constructor(title, price, thumbnail) {
-    this.title = title;
-    this.price = price;
-    this.thumbnail = thumbnail;
-  }
-  save(object) {
-    object.id = products.length + 1;
-
-    products.push(object);
-
-    fs.writeFileSync("./products.txt", JSON.stringify(products));
+  constructor(file) {
+    this.file = file;
   }
 
-  getById(number) {
-    return products.find((e) => {
-      return e.id === number;
-    });
+  async createIfNotExist() {
+    let file;
+    try {
+      file = await fs.promises.readFile(this.file);
+    } catch (error) {
+      if (error.code == "ENOENT") {
+        await fs.promises.writeFile(this.file, "[]").then(() => {
+          console.log("No existe products.txt. Archivo creado.");
+        });
+        file = await fs.promises.readFile(this.file);
+      } else {
+        console.log("Hubo un error", error);
+      }
+    }
+    return file;
   }
 
-  getAll() {
-    return products;
+  async save(object) {
+    const file = await this.createIfNotExist();
+    const parsedFile = JSON.parse(file);
+    if (!parsedFile.length) {
+      object.id = 1;
+    } else {
+      object.id = parsedFile.at(-1).id + 1;
+    }
+    parsedFile.push(object);
+    await fs.promises.writeFile(this.file, JSON.stringify(parsedFile, null, 2));
   }
 
-  deleteById(number) {
-    products = products.filter((e) => {
-      return e.id !== number;
-    });
-
-    fs.writeFileSync("./products.txt", JSON.stringify(products));
+  async getById(number) {
+    const file = await this.createIfNotExist();
+    return JSON.parse(file).find((e) => e.id === number);
   }
 
-  deleteAll() {
-    fs.unlinkSync("./products.txt");
+  async getAll() {
+    const file = await this.createIfNotExist();
+    return JSON.parse(file);
+  }
+
+  async deleteById(number) {
+    const file = await this.createIfNotExist();
+    const parsedAndFilterFile = JSON.parse(file).filter((e) => e.id !== number);
+    await fs.promises.writeFile(this.file, JSON.stringify(parsedAndFilterFile));
+  }
+
+  async deleteAll() {
+    fs.promises.unlink(this.file);
   }
 }
 
-const productOne = new Container(
-  "Escuadra",
-  123.45,
-  "https://cdn3.iconfinder.com/data/icons/education-209/64/ruler-triangle-stationary-school-256.png"
-);
+const products = [
+  {
+    title: "Escuadra",
+    price: 123.45,
+    thumbnail:
+      "https://cdn3.iconfinder.com/data/icons/education-209/64/ruler-triangle-stationary-school-256.png",
+    id: 1,
+  },
+  {
+    title: "Calculadora",
+    price: 234.56,
+    thumbnail:
+      "https://cdn3.iconfinder.com/data/icons/education-209/64/calculator-math-tool-school-256.png",
+    id: 2,
+  },
+  {
+    title: "Globo Terráqueo",
+    price: 345.67,
+    thumbnail:
+      "https://cdn3.iconfinder.com/data/icons/education-209/64/globe-earth-geograhy-planet-school-256.png",
+    id: 3,
+  },
+];
 
-const productTwo = new Container(
-  "Calculadora",
-  234.56,
-  "https://cdn3.iconfinder.com/data/icons/education-209/64/calculator-math-tool-school-256.png"
-);
-
-const productThree = new Container(
-  "Globo Terráqueo",
-  345.67,
-  "https://cdn3.iconfinder.com/data/icons/education-209/64/globe-earth-geograhy-planet-school-256.png"
-);
-
-productOne.save(productOne);
+const containerOne = new Container("./products.txt");
+containerOne.save(products[0]);
